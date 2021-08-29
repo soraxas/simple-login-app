@@ -57,6 +57,14 @@
   {% endif %}
 
   <li class="nav-item">
+    <a href="{{ url_for('dashboard.refused_email_route') }}"
+       class="nav-link {{ 'active' if active_sub_page == 'refused_email' }}">
+      <i class="fe fe-mail"></i>
+      RefusedEmail
+    </a>
+  </li>
+
+  <li class="nav-item">
     <a href="{{ url_for('dashboard.setting') }}"
        class="nav-link {{ 'active' if active_page == 'setting' }}">
       <i class="fe fe-settings"></i>

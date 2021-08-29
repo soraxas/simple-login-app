@@ -495,6 +495,56 @@ def sign_msg(msg: Message) -> Message:
     return container
 
 
+def save_a_mail_copy(envelope, rcpt_tos, email_log=None):
+    alias = Alias.get_by(email=rcpt_tos[0])
+
+    if not alias:
+        LOG.d("alias %s not exist. Try to see if it can be created on the fly", rcpt_tos[0])
+        alias = try_auto_create(rcpt_tos[0])
+        if not alias:
+            LOG.d("alias %s cannot be created on-the-fly", rcpt_tos[0])
+            return
+
+    msg = email.message_from_bytes(envelope.original_content)
+    #LOG.d(envelope.original_content)
+    #LOG.d(msg)
+    mailbox = alias.mailboxes[0]
+
+    if email_log is None:
+
+        if msg["Reply-To"]:
+            # force convert header to string, sometimes contact_from_header is Header object
+            LOG.d("Use Reply-To header")
+            from_header = str(msg["Reply-To"])
+        else:
+            from_header = str(msg["From"])
+
+        contact = get_or_create_contact(from_header, envelope.mail_from, alias)
+
+        email_log = EmailLog.create(
+            contact_id=contact.id, user_id=alias.user.id, mailbox_id=mailbox.id, commit=True
+        )
+
+    # store the refused email
+    random_name = str(uuid.uuid4())
+    full_report_path = f"refused-emails/savecopy-{random_name}.eml"
+    s3.upload_email_from_bytesio(full_report_path, BytesIO(to_bytes(msg)), random_name)
+    refused_email = RefusedEmail.create(
+        path=None, full_report_path=full_report_path, user_id=alias.user_id
+    )
+    db.session.commit()
+    LOG.d("Create a backup email %s", refused_email)
+    # link available for 6 days as it gets deleted in 7 days
+    refused_email_url = refused_email.get_url(expires_in=518400)
+
+    db.session.flush()
+
+    email_log.bounced = True
+    email_log.refused_email_id = refused_email.id
+    email_log.bounced_mailbox_id = mailbox.id
+    db.session.commit()
+
+
 def handle_email_sent_to_ourself(alias, mailbox, msg: Message, user):
     # store the refused email
     random_name = str(uuid.uuid4())
@@ -525,6 +575,7 @@ def handle_email_sent_to_ourself(alias, mailbox, msg: Message, user):
             mailbox=mailbox,
             refused_email_url=refused_email_url,
         ),
+        max_times=float('inf'),
     )
 
 
@@ -1735,6 +1786,10 @@ def handle(envelope: Envelope) -> str:
             "out-of-office email to reverse alias %s. %s", rcpt_tos[0], msg.as_string()
         )
         return status.E206
+
+    save_a_mail_copy(envelope, rcpt_tos)
+
+
 
     # result of all deliveries
     # each element is a couple of whether the delivery is successful and the smtp status

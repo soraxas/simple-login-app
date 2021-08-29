@@ -2096,6 +2096,46 @@ class RefusedEmail(db.Model, ModelMixin):
     def __repr__(self):
         return f"<Refused Email {self.id} {self.path} {self.delete_at}>"
 
+    msg = None
+
+    def _get_msg(self):
+        if self.msg is not None:
+            return
+
+        path = self.path if self.path else self.full_report_path
+
+        import email
+        from email import policy
+        from email.parser import BytesParser
+
+        import os
+        try:
+            with open("static/upload/" + path, 'rb') as fp:
+                self.msg = BytesParser(policy=policy.default).parse(fp)
+        except FileNotFoundError:
+            self.msg = False
+
+    def get_body_content(self):
+        self._get_msg()
+        if not self.msg:
+            return "[file not found]"
+
+        from markupsafe import Markup
+
+        text = self.msg.get_body(preferencelist=('plain')).get_content()
+        r = '<br />'
+        text = text.replace('\r\n',r).replace('\n\r',r).replace('\r',r).replace('\n',r)
+        return Markup(text)
+
+    def get_subject_content(self):
+        self._get_msg()
+        if not self.msg:
+            return "[file not found]"
+
+        from markupsafe import Markup
+
+        text = self.msg.get('Subject')
+        return Markup(text)
 
 class Referral(db.Model, ModelMixin):
     """Referral code so user can invite others"""
