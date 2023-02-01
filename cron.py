@@ -88,9 +88,11 @@ def delete_logs():
 
     db.session.commit()
 
-    LOG.d("Delete EmailLog older than 2 weeks")
+    # LOG.d("Delete EmailLog older than 2 weeks")
+    LOG.d("Delete EmailLog older than a year")
 
-    max_dt = arrow.now().shift(weeks=-2)
+    # max_dt = arrow.now().shift(weeks=-2)
+    max_dt = arrow.now().shift(weeks=-52)
     nb_deleted = EmailLog.query.filter(EmailLog.created_at < max_dt).delete()
     db.session.commit()
 
@@ -381,6 +383,8 @@ def stats():
         .order_by(Metric2.date.desc())
         .first()
     )
+    if stats_yesterday is None:
+        stats_yesterday = stats_today
 
     nb_user_increase = increase_percent(stats_yesterday.nb_user, stats_today.nb_user)
     nb_alias_increase = increase_percent(stats_yesterday.nb_alias, stats_today.nb_alias)

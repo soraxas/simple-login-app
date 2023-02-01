@@ -21,6 +21,8 @@
       - Otherwise, you should create a <b>filter</b> to avoid your email provider from blocking these emails. <br>
       <a href="mailto:hi@simplelogin.io">Contact us↗</a> if you need any help.
 
+      <a href='{{ url_for("trigger_delete_old_logs") }}'
+             class="btn btn-sm btn-outline-danger">Trigger deletion of old logs</a>
     </div>
 
     {% if email_logs|length == 0 %}

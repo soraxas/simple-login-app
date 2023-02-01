@@ -2122,7 +2122,13 @@ class RefusedEmail(db.Model, ModelMixin):
 
         from markupsafe import Markup
 
-        text = self.msg.get_body(preferencelist=('plain')).get_content()
+        text = self.msg.get_body(preferencelist=('plain'))
+        if text is None:
+            text = "[empty body]"
+        else:
+            text = text.get_content()
+
+    
         r = '<br />'
         text = text.replace('\r\n',r).replace('\n\r',r).replace('\r',r).replace('\n',r)
         return Markup(text)

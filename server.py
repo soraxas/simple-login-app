@@ -467,6 +467,15 @@ def set_index_page(app):
         else:
             return redirect(url_for("auth.login"))
 
+    @app.route("/delete-old-logs", methods=["GET"])
+    def trigger_delete_old_logs():
+        if current_user.is_authenticated:
+            from cron import delete_logs
+            delete_logs()
+            return "ok :)"
+        else:
+            return redirect(url_for("auth.login"))
+
     @app.before_request
     def before_request():
         # not logging /static call
