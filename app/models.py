@@ -2555,6 +2555,51 @@ class RefusedEmail(Base, ModelMixin):
     def __repr__(self):
         return f"<Refused Email {self.id} {self.path} {self.delete_at}>"
 
+    def _get_msg(self):
+        import pathlib
+        from .eml_to_html import eml_to_message
+
+        path = self.path if self.path else self.full_report_path
+        mypath = pathlib.Path("static/upload/") / path
+        if mypath.is_file():
+            return eml_to_message(mypath)
+        else:
+            return None
+
+    # def get_body_plain_content(self):
+    #     msg = self._get_msg()
+    #     if msg is None:
+    #         return "[file not found]"
+    #     from markupsafe import Markup
+    #     text = msg.get_body(preferencelist=('plain'))
+    #     if text is None:
+    #         text = "[empty body]"
+    #     else:
+    #         text = text.get_content()
+
+    #     r = '<br />'
+    #     text = text.replace('\r\n',r).replace('\n\r',r).replace('\r',r).replace('\n',r)
+    #     return Markup(text)
+
+    def get_body_html_content(self):
+        msg = self._get_msg()
+        if msg is None:
+            return "[file not found]"
+        from .eml_to_html import message_to_html_str, message_to_rich_html
+
+        return message_to_rich_html(msg)
+
+    def get_subject_content(self):
+        from markupsafe import Markup
+        from . import eml_to_html
+
+        msg = self._get_msg()
+        return Markup(eml_to_html._decode_subject(msg))
+        if msg is None:
+            return "[file not found]"
+        text = msg.get('Subject')
+        return Markup(text)
+
 
 class Referral(Base, ModelMixin):
     """Referral code so user can invite others"""

@@ -8,8 +8,28 @@
       margin-top: 8px;
   }
   </style>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery-modal/0.9.1/jquery.modal.min.js"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/jquery-modal/0.9.1/jquery.modal.min.css" />
+
+  <style>
+  .modal {
+      max-width: 1000px;
+      overflow: auto;
+  }
+  .button-row{
+    display: flex;
+    justify-content: space-between;
+    width: 200px;
+    /* margin: 0 auto; */
+    align-items: center;
+  }
+  </style>
+
 {% endblock %}
-{% set active_page = "setting" %}
+<!-- {% set active_page = "setting" %} -->
+{% set active_page = "refused_email" %}
+
 {% block default_content %}
 
   <div class="col">
@@ -77,6 +97,19 @@
 
           <div class="mt-6" style="font-weight: 600">Email deleted {{ refused_email.delete_at | dt }}</div>
         {% else %}
+          <p><b>Title</b>: {{ refused_email.get_subject_content() }}</p>
+
+          <div class="button-row">
+            <a href="{{ url_for('dashboard.refused_email_view_route', refused_email_id=refused_email.id) }}"
+              class="btn btn-outline-primary mt-4"
+              rel="modal:open"
+              style="max-width: 20em">View</a>
+            <a href="{{ url_for('dashboard.refused_email_view_route', refused_email_id=refused_email.id) }}"
+              class="btn btn-outline-secondary mt-4"
+              rel="_blank"
+              style="max-width: 20em">View in new tab</a>
+          </div>
+
           <a href="{{ refused_email.get_url() }}"
              download
              class="btn btn-outline-primary mt-4"

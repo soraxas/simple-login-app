@@ -37,3 +37,20 @@ def refused_email_route():
         email_logs.insert(0, email_logs.pop(highlight_index))
 
     return render_template("dashboard/refused_email.html", **locals())
+
+
+@dashboard_bp.route("/view_email/<int:refused_email_id>", methods=["GET", "POST"])
+@login_required
+def refused_email_view_route(refused_email_id):
+
+    email_logs: [EmailLog] = (
+        EmailLog.filter(
+            EmailLog.user_id == current_user.id, EmailLog.refused_email_id == refused_email_id
+        )
+        .all()
+    )
+
+    if len(email_logs) != 1:
+        return f"Error. Found {len(email_logs)} many emails with id {refused_email_id}."
+
+    return email_logs[0].refused_email.get_body_html_content()
