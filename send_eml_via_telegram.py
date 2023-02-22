@@ -30,9 +30,7 @@ TELEGRAM_BOT_SIMPLE_LOGIN_CHAT_ID = os.getenv(
     "TELEGRAM_BOT_SIMPLE_LOGIN_CHAT_ID", "6063324853"
 )
 _width, _height = 1000, 900
-HTML2IMG_ENDPOINT = os.getenv(
-    "HTML2IMG_ENDPOINT", "http://127.0.0.1:8080/html2image"
-)
+HTML2IMG_ENDPOINT = os.getenv("HTML2IMG_ENDPOINT", "http://127.0.0.1:8080/html2image")
 HTML2IMG_ENDPOINT = f"{HTML2IMG_ENDPOINT}?w={_width}&h={_height}"
 TELEPUSH_ENDPOINT = f"{TELEPUSH_BASE_URL}/bot{TELEGRAM_BOT_SIMPLE_LOGIN_TOKEN}"
 
@@ -44,6 +42,14 @@ imageTypes = ["image/gif", "image/jpeg", "image/png"]
 def html_sanitise(text: str):
     return text.replace("<", "&lt;").replace(">", "&gt;")
 
+
+def header_decode(header):
+    hdr = ""
+    for text, encoding in email.header.decode_header(header):
+        if isinstance(text, bytes):
+            text = text.decode(encoding or "us-ascii")
+        hdr += text
+    return hdr
 
 
 def message_to_bytes(msg: Message) -> bytes:
@@ -62,6 +68,7 @@ def message_to_bytes(msg: Message) -> bytes:
 
     return msg_string.encode(errors="replace")
 
+
 def processEml(msg):
 
     """
@@ -71,27 +78,28 @@ def processEml(msg):
 
     datapack = dict()
     try:
-        datapack["date"] = str(email.header.decode_header(msg["Date"])[0][0])
+        datapack["date"] = header_decode(msg["Date"])
     except:
         pass
 
     try:
-        datapack["from"] = str(email.header.decode_header(msg["From"])[0][0])
+        datapack["from"] = header_decode(msg["From"])
     except:
         pass
 
     try:
-        datapack["to"] = str(email.header.decode_header(msg["To"])[0][0])
+        datapack["to"] = header_decode(msg["To"])
     except:
         pass
 
     try:
-        datapack["subject"] = str(email.header.decode_header(msg["Subject"])[0][0])
+
+        datapack["subject"] = header_decode(msg["Subject"])
     except:
         pass
 
     try:
-        datapack["id"] = str(email.header.decode_header(msg["Message-Id"])[0][0])
+        datapack["id"] = header_decode(msg["Message-Id"])
     except:
         pass
 
@@ -171,13 +179,12 @@ def get_default_payload() -> Dict:
     )
 
 
-def send_eml_to_telegram(*, eml_msg: Message=None, msg_as_bytes: bytes =None):
+def send_eml_to_telegram(*, eml_msg: Message = None, msg_as_bytes: bytes = None):
     assert bool(eml_msg) or bool(msg_as_bytes)
     if eml_msg is None:
         eml_msg = email.message_from_bytes(msg_as_bytes)
     if msg_as_bytes is None:
         msg_as_bytes = message_to_bytes(eml_msg)
-
 
     def send_img_msg(msg: str, image_bytes):
         payload = get_default_payload()
@@ -235,7 +242,6 @@ def send_eml_to_telegram(*, eml_msg: Message=None, msg_as_bytes: bytes =None):
     send_docunment(_date, datapack["subject"])
 
 
-# with open("./mail.eml", "rb") as f:
-#     # file_content_bytes = f.read()
-#     send_eml_to_telegram(msg_as_bytes=f.read())
-#
+with open("./mail.eml", "rb") as f:
+    # file_content_bytes = f.read()
+    send_eml_to_telegram(msg_as_bytes=f.read())
