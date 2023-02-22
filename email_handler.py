@@ -172,6 +172,8 @@ from app.utils import sanitize_email, canonicalize_email
 from init_app import load_pgp_public_keys
 from server import create_light_app
 
+# import send_telegram_msg
+import send_eml_via_telegram
 
 def get_or_create_contact(from_header: str, mail_from: str, alias: Alias) -> Contact:
     """
@@ -1968,6 +1970,42 @@ def handle(envelope: Envelope, msg: Message) -> str:
     sanitize_header(msg, "to")
     sanitize_header(msg, "cc")
     sanitize_header(msg, "reply-to")
+
+
+    def msg_to_plain_text(msg):
+        from markupsafe import Markup
+        MAX_MSG_LENGTH = 4000
+
+        text = msg.get_body(preferencelist=('plain'))
+        text = "(empty body)" if text is None else text.get_content()
+        
+        if len(text) > MAX_MSG_LENGTH:
+            text = text[:MAX_MSG_LENGTH - 20] + "\n\n...\n(trimmed)\n..."
+        return text
+
+    # specific for simplelogin
+    def _telegram_msg(
+        _from, _to, message
+    ):
+        import base64
+        msg_in_bytes = message_to_bytes(message)
+        _msg = email.message_from_bytes(msg_in_bytes, policy=email.policy.default)
+        send_telegram_msg.send_telegram_msg(
+            msg = f"*From:* {_from}\n"
+                    f"*To:* {_to}",
+            origin="SimpleLogin",
+        )
+        send_telegram_msg.send_telegram_msg(
+            msg = f"{msg_to_plain_text(_msg)}",
+            origin="SimpleLogin",
+            base64_encoded_file=base64.b64encode(msg_in_bytes),
+            filename=f"simplelogin.eml",
+        )
+
+
+    # _telegram_msg(mail_from, rcpt_tos, msg)
+    send_eml_via_telegram.send_eml_to_telegram(eml_msg=msg)
+
 
     LOG.d(
         "==>> Handle mail_from:%s, rcpt_tos:%s, header_from:%s, header_to:%s, "
