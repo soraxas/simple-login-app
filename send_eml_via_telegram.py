@@ -9,8 +9,8 @@ from email import policy
 from email.message import Message
 
 from collections import defaultdict
-from typing import Dict
-
+from typing import Dict, Union, Tuple
+import traceback
 
 # TELEPUSH_BASE_URL = "https://telepush.dev/api/messages"
 # TELEPUSH_TOKEN = os.getenv("TELEPUSH_TOKEN")
@@ -39,13 +39,13 @@ textTypes = ["text/plain", "text/html"]
 imageTypes = ["image/gif", "image/jpeg", "image/png"]
 
 
-def html_sanitise(text: str):
+def html_sanitise(text: Union[str, bytes]) -> str:
     if type(text) == bytes:
         text = text.decode()
     return text.replace("<", "&lt;").replace(">", "&gt;")
 
 
-def header_decode(header):
+def header_decode(header) -> str:
     hdr = ""
     for text, encoding in email.header.decode_header(header):
         if isinstance(text, bytes):
@@ -71,13 +71,27 @@ def message_to_bytes(msg: Message) -> bytes:
     return msg_string.encode(errors="replace")
 
 
-def processEml(msg):
+def extract_message_as_html_str(message: Message) -> str:
+    payload = message.get_payload()
 
-    """
-    Process the email (bytes), extract MIME parts and useful headers.
-    Generate a PNG picture of the mail
-    """
+    if isinstance(payload, str):
+        payload_decoded: bytes = message.get_payload(decode=True)
+        payload_decoded_str: str = payload_decoded.decode("utf-8")
+        return payload_decoded_str
+    elif isinstance(payload, list):
+        return "\n".join(
+            [
+                extract_message_as_html_str(message)
+                for message in payload
+                if message.get_content_type() == "text/html"
+            ]
+        )
+    else:
+        return "[failed to parse message]"
+        # raise ValueError(f"`payload` type is {type(payload)}")
 
+
+def extract_datapack(msg: Message) -> Dict:
     datapack = dict()
     try:
         datapack["date"] = header_decode(msg["Date"])
@@ -105,13 +119,13 @@ def processEml(msg):
     except:
         pass
 
-    html_parts = []
-    attachments = []
+    return datapack
 
+
+def datapack_to_pretty_header(datapack: Dict) -> str:
     unknown = "&lt;Unknown&gt;"
-
     # Build a first image with basic mail details
-    headers = f"""
+    return f"""
     <table width="100%">
       <tr><td align="right"><b>Date:</b></td><td>{datapack.get('date', unknown)}</td></tr>
       <tr><td align="right"><b>From:</b></td><td>{html_sanitise(datapack.get('from', unknown))}</td></tr>
@@ -122,7 +136,33 @@ def processEml(msg):
     <hr></p>
     """
 
-    html_parts.append(headers)
+
+def processEml(msg: Message) -> Tuple[str, Dict]:
+    """
+    Process the email (bytes), extract MIME parts and useful headers.
+    Generate a PNG picture of the mail
+    """
+    datapack = extract_datapack(msg)
+    header = datapack_to_pretty_header(datapack)
+
+    return f"{header}{extract_message_as_html_str(msg)}", datapack
+
+
+def processEml_brute(msg: Message) -> Tuple[str, Dict]:
+
+    """
+    Process the email (bytes), extract MIME parts and useful header.
+    Generate a PNG picture of the mail
+    """
+    # Build a first image with basic mail details
+
+    datapack = extract_datapack(msg)
+    header = datapack_to_pretty_header(datapack)
+
+    html_parts = []
+    attachments = []
+
+    html_parts.append(header)
 
     #
     # Main loop - process the MIME parts
@@ -235,7 +275,7 @@ def _send_eml_to_telegram(*, eml_msg: Message = None, msg_as_bytes: bytes = None
         f"To: {datapack['to']}\n"
     )
 
-    r = requests.post(HTML2IMG_ENDPOINT, data=data.encode('utf-8'))
+    r = requests.post(HTML2IMG_ENDPOINT, data=data.encode("utf-8"))
     if r.status_code == 200 and r.headers["Content-Type"].startswith("image/"):
         send_img_msg(msg, r.content)
     else:
@@ -248,9 +288,10 @@ def send_eml_to_telegram(**kwargs):
     try:
         _send_eml_to_telegram(**kwargs)
     except Exception as e:
-        print(e)
+        print(traceback.format_exc())
 
 
-# with open("./mail.eml", "rb") as f:
-#     # file_content_bytes = f.read()
-#     send_eml_to_telegram(msg_as_bytes=f.read())
+if __name__ == "__main__":
+    with open("./mail.eml", "rb") as f:
+        # file_content_bytes = f.read()
+        send_eml_to_telegram(msg_as_bytes=f.read())
