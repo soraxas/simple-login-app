@@ -40,6 +40,8 @@ imageTypes = ["image/gif", "image/jpeg", "image/png"]
 
 
 def html_sanitise(text: str):
+    if type(text) == bytes:
+        text = text.decode()
     return text.replace("<", "&lt;").replace(">", "&gt;")
 
 
@@ -179,7 +181,7 @@ def get_default_payload() -> Dict:
     )
 
 
-def send_eml_to_telegram(*, eml_msg: Message = None, msg_as_bytes: bytes = None):
+def _send_eml_to_telegram(*, eml_msg: Message = None, msg_as_bytes: bytes = None):
     assert bool(eml_msg) or bool(msg_as_bytes)
     if eml_msg is None:
         eml_msg = email.message_from_bytes(msg_as_bytes)
@@ -233,13 +235,20 @@ def send_eml_to_telegram(*, eml_msg: Message = None, msg_as_bytes: bytes = None)
         f"To: {datapack['to']}\n"
     )
 
-    r = requests.post(HTML2IMG_ENDPOINT, data=data)
+    r = requests.post(HTML2IMG_ENDPOINT, data=data.encode('utf-8'))
     if r.status_code == 200 and r.headers["Content-Type"].startswith("image/"):
         send_img_msg(msg, r.content)
     else:
         print(r.status_code, r.text)
         send_text_msg(msg, error_msg=r.text)
     send_docunment(_date, datapack["subject"])
+
+
+def send_eml_to_telegram(**kwargs):
+    try:
+        _send_eml_to_telegram(**kwargs)
+    except Exception as e:
+        print(e)
 
 
 # with open("./mail.eml", "rb") as f:
