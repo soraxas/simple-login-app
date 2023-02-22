@@ -242,6 +242,6 @@ def send_eml_to_telegram(*, eml_msg: Message = None, msg_as_bytes: bytes = None)
     send_docunment(_date, datapack["subject"])
 
 
-with open("./mail.eml", "rb") as f:
-    # file_content_bytes = f.read()
-    send_eml_to_telegram(msg_as_bytes=f.read())
+# with open("./mail.eml", "rb") as f:
+#     # file_content_bytes = f.read()
+#     send_eml_to_telegram(msg_as_bytes=f.read())
