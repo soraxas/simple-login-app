@@ -213,10 +213,12 @@ def processEml_brute(msg: Message) -> Tuple[str, Dict]:
     return "".join(html_parts), datapack
 
 
-def get_default_payload() -> Dict:
+def get_default_payload(chat_id=None) -> Dict:
+    if chat_id is None:
+        chat_id = TELEGRAM_BOT_SIMPLE_LOGIN_CHAT_ID
     return dict(
         parse_mode="Markdown",
-        chat_id=TELEGRAM_BOT_SIMPLE_LOGIN_CHAT_ID,
+        chat_id=chat_id,
         disable_notification=False,
     )
 
@@ -228,8 +230,7 @@ def _send_eml_to_telegram(*, eml_msg: Message = None, msg_as_bytes: bytes = None
     if msg_as_bytes is None:
         msg_as_bytes = message_to_bytes(eml_msg)
 
-    def send_img_msg(msg: str, image_bytes):
-        payload = get_default_payload()
+    def send_img_msg(payload, msg: str, image_bytes):
         payload["caption"] = msg
         r = requests.post(
             f"{TELEPUSH_ENDPOINT}/sendPhoto",
@@ -239,8 +240,7 @@ def _send_eml_to_telegram(*, eml_msg: Message = None, msg_as_bytes: bytes = None
         if r.status_code != 200:
             print(r.text)
 
-    def send_text_msg(msg: str, error_msg: str):
-        payload = get_default_payload()
+    def send_text_msg(payload, msg: str, error_msg: str):
         payload["text"] = f"{msg}\n> Failed to generate image:\n{error_msg}"
         r = requests.post(
             f"{TELEPUSH_ENDPOINT}/sendMessage",
@@ -249,8 +249,7 @@ def _send_eml_to_telegram(*, eml_msg: Message = None, msg_as_bytes: bytes = None
         if r.status_code != 200:
             print(r.text)
 
-    def send_docunment(date: str, subject: str):
-        payload = get_default_payload()
+    def send_docunment(payload, date: str, subject: str):
         payload["disable_notification"] = True
         # payload['caption'] = msg
         r = requests.post(
@@ -275,13 +274,24 @@ def _send_eml_to_telegram(*, eml_msg: Message = None, msg_as_bytes: bytes = None
         f"To: {datapack['to']}\n"
     )
 
-    r = requests.post(HTML2IMG_ENDPOINT, data=data.encode("utf-8"))
-    if r.status_code == 200 and r.headers["Content-Type"].startswith("image/"):
-        send_img_msg(msg, r.content)
-    else:
-        print(r.status_code, r.text)
-        send_text_msg(msg, error_msg=r.text)
-    send_docunment(_date, datapack["subject"])
+    targets = [TELEGRAM_BOT_SIMPLE_LOGIN_CHAT_ID]
+    if 'davis-' in datapack['to']:
+        targets.append('6271528482')
+
+    for target_id in targets:
+        try:
+            payload = get_default_payload(chat_id=target_id)
+            r = requests.post(HTML2IMG_ENDPOINT, data=data.encode("utf-8"))
+            if r.status_code == 200 and r.headers["Content-Type"].startswith("image/"):
+                send_img_msg(payload, msg, r.content)
+            else:
+                print(r.status_code, r.text)
+                send_text_msg(payload, msg, error_msg=r.text)
+            send_docunment(payload, _date, datapack["subject"])
+
+        except Exception as e:
+            print(f"==========ERROR in chatID {target_id}")
+            print(traceback.format_exc())
 
 
 def send_eml_to_telegram(**kwargs):
